@@ -448,3 +448,6 @@ out/
 .turbo/
 
 *instructions*
+
+extensions.json
+settings.json
