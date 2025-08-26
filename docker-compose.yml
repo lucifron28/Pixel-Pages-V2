@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: pixel_pages_db
+    environment:
+      POSTGRES_DB: pixel_pages
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pixel_pages_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pixel_pages"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pixel_pages_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pixel_pages_network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: pixel_pages_api
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pixel_pages
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-super-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app
+      - api_storage:/app/storage
+    networks:
+      - pixel_pages_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    container_name: pixel_pages_worker
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pixel_pages
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./apps/worker:/app
+      - ./apps/api:/shared/api 
+      - api_storage:/shared/storage
+    networks:
+      - pixel_pages_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m worker.main
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  api_storage:
+    driver: local
+
+networks:
+  pixel_pages_network:
+    driver: bridge
