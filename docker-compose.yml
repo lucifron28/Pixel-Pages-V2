@@ -43,7 +43,7 @@ services:
       dockerfile: docker/api.Dockerfile
     container_name: pixel_pages_api
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pixel_pages
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/pixel_pages
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-super-secret-key-change-in-production
       - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
@@ -67,7 +67,7 @@ services:
       dockerfile: docker/worker.Dockerfile
     container_name: pixel_pages_worker
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pixel_pages
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/pixel_pages
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./apps/worker:/app
@@ -80,7 +80,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: python -m worker.main
+    command: celery -A worker.main:app worker --loglevel=info
 
 volumes:
   postgres_data:
