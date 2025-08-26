@@ -1,0 +1,9 @@
+celery==5.5.*
+redis==5.3.*
+sqlalchemy[asyncio]==2.0.*
+asyncpg==0.29.*
+python-dotenv==1.1.*
+ebooklib==0.18
+beautifulsoup4==4.13.*
+pillow==10.4.*
+lxml==6.0.*
